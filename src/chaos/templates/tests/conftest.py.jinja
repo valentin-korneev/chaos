@@ -1,0 +1,45 @@
+{{ include_when(enabled=tests) -}}
+"""Общее тестовое окружение проекта."""
+
+{% if api %}
+from collections.abc import Iterator
+
+{% endif %}
+import pytest
+{% if api %}
+from fastapi.testclient import TestClient
+
+from {{ module }}.main import app
+{% endif %}
+
+
+@pytest.fixture(autouse=True)
+def project_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Установить настройки независимо от локального .env."""
+    monkeypatch.setenv('{{ prefix }}PROJECT_NAME', '{{ name }}')
+    monkeypatch.setenv('{{ prefix }}LOG__LEVEL', 'INFO')
+    monkeypatch.setenv('{{ prefix }}LOG__FORMAT', '%(message)s')
+    monkeypatch.setenv('{{ prefix }}LOG__DATE_FORMAT', '%Y-%m-%d')
+{% if database %}
+    monkeypatch.setenv('{{ prefix }}DB_HOST', 'localhost')
+    monkeypatch.setenv('{{ prefix }}DB_NAME', '{{ name }}')
+    monkeypatch.setenv('{{ prefix }}DB_USER', 'app')
+    monkeypatch.setenv('{{ prefix }}DB_PASSWORD', 'test-value')
+{% endif %}
+{% if oidc %}
+    monkeypatch.setenv(
+        '{{ prefix }}OIDC__DISCOVERY_URL',
+        'https://id.example.com/tenant/.well-known/openid-configuration',
+    )
+    monkeypatch.setenv('{{ prefix }}OIDC__CLIENT_ID', 'test-client')
+    monkeypatch.setenv('{{ prefix }}OIDC__CLIENT_SECRET', 'test-value')
+{% endif %}
+{% if api %}
+
+
+@pytest.fixture(name='client')
+def api_client() -> Iterator[TestClient]:
+    """Запустить приложение на время теста."""
+    with TestClient(app) as test_client:
+        yield test_client
+{% endif %}

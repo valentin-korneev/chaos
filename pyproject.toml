@@ -1,0 +1,76 @@
+[project]
+name = "chaos"
+version = "0.0.1"
+description = "Генерация корпоративных Python-проектов"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "jinja2>=3.1.6",
+    "pyyaml>=6.0.3",
+    "questionary>=2.1.1",
+]
+
+[dependency-groups]
+dev = [
+    "bandit>=1.9.4",
+    "pylint>=4.1.4",
+    "ruff>=0.17.6",
+]
+
+[project.scripts]
+chaos = "chaos:main"
+
+[build-system]
+requires = ["uv_build>=0.13.8,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 120
+exclude = [
+    ".venv",
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "COM812",
+    "CPY001",
+    "D203",
+    "D213",
+    "DTZ",
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/chaos/generation/commands.py" = ["S603"]
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+docstring-quotes = "double"
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.pylint.main]
+persistent = false
+ignore = [
+    ".venv",
+]
+max-line-length = 120
+py-version = "3.15"
+
+[tool.pylint."messages control"]
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+]
+
+[tool.bandit]
+exclude_dirs = [
+    ".venv",
+]
+skips = []
+tests = []

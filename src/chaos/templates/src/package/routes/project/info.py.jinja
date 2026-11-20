@@ -1,0 +1,21 @@
+{{ include_when(enabled=api) -}}
+"""Маршрут со сведениями о проекте."""
+
+{% if oidc %}
+from fastapi import APIRouter, Depends, Request
+{% else %}
+from fastapi import APIRouter, Request
+{% endif %}
+
+from {{ module }}.core.info import project_info
+{% if oidc %}
+from {{ module }}.routes.auth.oidc import require_token
+{% endif %}
+
+router = APIRouter()
+
+
+@router.get('/info'{% if oidc %}, dependencies=[Depends(require_token)]{% endif %})
+async def info(request: Request) -> dict[str, str]:
+    """Вернуть сведения о проекте."""
+    return project_info(request.app.state.settings)

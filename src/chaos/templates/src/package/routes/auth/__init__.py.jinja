@@ -1,0 +1,6 @@
+{{ include_when(enabled=api and oidc) -}}
+"""Группа маршрутов авторизации."""
+
+from {{ module }}.routes.auth.oidc import router
+
+__all__ = ['router']

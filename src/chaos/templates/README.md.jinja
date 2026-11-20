@@ -1,0 +1,92 @@
+# {{ name }}
+
+Проект Python {{ python }}, созданный через `chaos`.
+
+## Запуск
+
+```sh
+uv sync
+{% if database %}
+docker compose up -d --wait db
+{{ prefix }}DB_HOST=127.0.0.1 uv run {{ name }}
+{% else %}
+uv run {{ name }}
+{% endif %}
+```
+
+{% if database %}
+`docker compose up --build` запускает приложение и PostgreSQL. Compose создаёт базу, схему `{{ name }}` и том `postgres_{{ name }}`.
+
+### Модели и миграции
+
+Описывайте модели Tortoise в `src/{{ module }}/models/<название модели>.py`, импортируйте в `src/{{ module }}/models/__init__.py`
+и перечислите их в `__all__`. После изменения моделей выполните:
+
+```sh
+tortoise makemigrations
+tortoise migrate
+```
+
+Контейнер запускает `tortoise migrate`, когда в проекте есть файлы миграций.
+
+{% endif %}
+## Окружение
+
+Переменные берутся из `.env` или окружения процесса. `.env.example` содержит заготовку.
+
+| Переменная | Назначение |
+| --- | --- |
+| `{{ prefix }}LOG__LEVEL` | Уровень логирования. |
+| `{{ prefix }}LOG__FORMAT` | Шаблон сообщения Python logging. |
+| `{{ prefix }}LOG__DATE_FORMAT` | Формат времени для `%(asctime)s`. |
+{% if database %}
+| `{{ prefix }}DB_HOST`, `{{ prefix }}DB_PORT` | Хост и порт PostgreSQL. В Compose хост `db`. Порт по умолчанию `5432`. |
+| `{{ prefix }}DB_NAME`, `{{ prefix }}DB_USER`, `{{ prefix }}DB_PASSWORD` | Имя базы и учётные данные. |
+{% endif %}
+{% if api %}
+| `{{ prefix }}HOST`, `{{ prefix }}PORT` | Адрес и порт FastAPI. Локально `127.0.0.1:8000`. |
+{% endif %}
+{% if oidc %}
+| `{{ prefix }}OIDC__DISCOVERY_URL` | HTTPS-адрес документа `.well-known/openid-configuration`. |
+| `{{ prefix }}OIDC__CLIENT_ID`, `{{ prefix }}OIDC__CLIENT_SECRET` | Учётные данные OIDC-клиента. |
+| `{{ prefix }}OIDC__SIGNING_ALGORITHM`, `{{ prefix }}OIDC__JWT_PROFILE` | По умолчанию `RS256` и `rfc9068`. Для Keycloak доступен профиль `keycloak`. |
+| `{{ prefix }}OIDC__TOKEN_AUTH_METHOD` | При необходимости `client_secret_basic` или `client_secret_post`. |
+{% endif %}
+{% if database %}
+
+`POSTGRES_*` в `.env` используются образом PostgreSQL и берут значения из настроек проекта.
+{% endif %}
+{% if api %}
+
+## API
+
+| Маршрут | Назначение |
+| --- | --- |
+| `GET /health` | Проверка сервиса{% if database %} и PostgreSQL{% endif %}. Используется для проб OpenShift. |
+| `GET /ready` | Подтверждение запуска. Используется для проб OpenShift. |
+| `GET /info` | Имя и версия проекта{% if oidc %}. Требуется токен доступа{% endif %}. |
+
+Для нового раздела создайте группу в `src/{{ module }}/routes/` по примеру
+`system/` и подключите её через `app.include_router(...)` в `main.py`.
+{% endif %}
+{% if oidc %}
+
+### OIDC
+
+У провайдера включите Authorization Code с PKCE S256 и зарегистрируйте `http://127.0.0.1:8000/docs/oauth2-redirect` для
+локального запуска. Для развёртывания зарегистрируйте HTTPS-адрес возврата сервиса. В `/docs` нажмите
+**Authorize**. Секрет берётся из окружения сервиса.
+{% endif %}
+
+## Docker
+
+```sh
+docker build -t {{ name }} .
+{% if not database %}
+{% if api %}
+docker run --rm --env-file .env -p 8000:8000 {{ name }}
+{% else %}
+docker run --rm --env-file .env {{ name }}
+{% endif %}
+{% endif %}
+```

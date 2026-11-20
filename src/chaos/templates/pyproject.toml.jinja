@@ -1,0 +1,118 @@
+[project]
+name = {{ name | toml }}
+version = "0.0.1"
+description = {{ ('Проект на FastAPI' if api else 'Проект на Python') | toml }}
+readme = "README.md"
+requires-python = {{ requires_python | toml }}
+dependencies = []
+
+[dependency-groups]
+dev = []
+
+[project.scripts]
+{{ name }} = "{{ module }}.main:main"
+
+[build-system]
+requires = {{ build_system.requires | toml }}
+build-backend = {{ build_system['build-backend'] | toml }}
+
+[[tool.uv.index]]
+name = "company"
+url = {{ policy.uv_index | toml }}
+default = true
+
+{% if database %}
+[tool.tortoise]
+tortoise_orm = "{{ module }}.core.tortoise_config.TORTOISE_ORM"
+
+{% endif %}
+[tool.ruff]
+exclude = [
+    ".venv",
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+{% for rule in policy.ruff_ignore %}
+    {{ rule | toml }},
+{% endfor %}
+]
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+docstring-quotes = "double"
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.pylint.main]
+ignore = [
+    ".venv",
+]
+recursive = true
+persistent = false
+max-line-length = 120
+py-version = {{ python | toml }}
+
+{% if database %}
+[tool.pylint.basic]
+good-names-rgxs = ["^[0-9]+_[a-z0-9_]+$"]
+
+{% endif %}
+[tool.pylint."messages control"]
+disable = [
+{% for rule in policy.pylint_disable %}
+    {{ rule | toml }},
+{% endfor %}
+]
+
+[tool.bandit]
+exclude_dirs = [
+    ".venv",
+]
+{% if policy.bandit_skips %}
+skips = [
+{% for rule in policy.bandit_skips %}
+    {{ rule | toml }},
+{% endfor %}
+]
+{% else %}
+skips = []
+{% endif %}
+tests = []
+{% if tests %}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+{% endif %}
+{% if tests or database %}
+
+[tool.ruff.lint.per-file-ignores]
+{% if tests %}
+"tests/*.py" = [
+    "INP001",
+    "S101",
+]
+{% endif %}
+{% if database %}
+"**/models/__init__.py" = [
+    "D104",
+]
+"**/migrations/[0-9]*.py" = [
+    "D100",
+    "D101",
+    "I001",
+    "RUF012",
+]
+{% endif %}
+{% endif %}
+{% if tests %}
+
+[tool.bandit.assert_used]
+skips = [
+    "*/tests/test_*.py",
+    "tests/test_*.py",
+]
+{% endif %}

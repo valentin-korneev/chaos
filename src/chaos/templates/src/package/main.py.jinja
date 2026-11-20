@@ -1,0 +1,101 @@
+"""Запуск проекта {{ name }}."""
+
+{% if api %}
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+import uvicorn
+from fastapi import FastAPI
+
+{% if database %}
+from {{ module }}.core.database import database_lifespan
+{% endif %}
+from {{ module }}.core.logging import configure_logging
+from {{ module }}.core.settings.application import (
+    {{ settings_class }},
+)
+{% if oidc %}
+from {{ module }}.routes import auth, project, system
+{% else %}
+from {{ module }}.routes import project, system
+{% endif %}
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    """Загрузить настройки приложения и настроить логирование."""
+    settings = {{ settings_class }}()
+    configure_logging(settings.log)
+    application.state.settings = settings
+{% if oidc %}
+    application.swagger_ui_init_oauth = {
+        'clientId': settings.oidc.client_id,
+        'scopes': ['openid'],
+        'usePkceWithAuthorizationCodeGrant': True,
+    }
+{% endif %}
+{% if database %}
+    async with database_lifespan(settings.database) as connection:
+        application.state.database = connection
+        yield
+{% else %}
+    yield
+{% endif %}
+
+
+app = FastAPI(title='{{ name }}', lifespan=lifespan)
+app.include_router(project.router)
+app.include_router(system.router)
+{% if oidc %}
+app.include_router(auth.router)
+{% endif %}
+
+
+def main() -> None:
+    """Запустить HTTP-сервер."""
+    settings = {{ settings_class }}()
+    uvicorn.run(app, host=settings.host, port=settings.port, log_config=None)
+{% else %}
+{% if database %}
+import asyncio
+{% endif %}
+import logging
+
+{% if database %}
+from {{ module }}.core.database import database_lifespan
+{% endif %}
+from {{ module }}.core.info import project_info
+from {{ module }}.core.logging import configure_logging
+from {{ module }}.core.settings.application import (
+    {{ settings_class }},
+)
+
+logger = logging.getLogger(__name__)
+
+
+{% if database %}
+async def run() -> None:
+    """Настроить логирование, проверить PostgreSQL и вывести сведения о проекте."""
+    settings = {{ settings_class }}()
+    configure_logging(settings.log)
+    async with database_lifespan(settings.database) as connection:
+        await connection.execute_query('SELECT 1')
+        logger.info('Сведения о проекте: %s', project_info(settings))
+
+
+def main() -> None:
+    """Запустить цикл событий скрипта."""
+    asyncio.run(run())
+
+{% else %}
+def main() -> None:
+    """Настроить логирование и вывести сведения о проекте."""
+    settings = {{ settings_class }}()
+    configure_logging(settings.log)
+    logger.info('Сведения о проекте: %s', project_info(settings))
+{% endif %}
+{% endif %}
+
+
+if __name__ == '__main__':
+    main()

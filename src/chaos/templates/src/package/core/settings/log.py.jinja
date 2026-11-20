@@ -1,0 +1,22 @@
+"""Параметры логирования."""
+
+from typing import Literal
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from {{ module }}.core.settings.paths import BASE_DIR, ENV_PREFIX
+
+
+class LogSettings(BaseSettings):
+    """Настройки логирования."""
+
+    model_config = SettingsConfigDict(
+        env_prefix=ENV_PREFIX + 'LOG__',
+        env_file=BASE_DIR / '.env',
+        env_file_encoding='utf-8',
+        extra='ignore',
+    )
+
+    level: Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'] = 'INFO'
+    format: str
+    date_format: str

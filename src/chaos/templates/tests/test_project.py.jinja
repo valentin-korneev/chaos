@@ -1,0 +1,31 @@
+{{ include_when(enabled=tests and api) -}}
+"""Проверки сведений о проекте."""
+
+from http import HTTPStatus
+from importlib.metadata import version
+
+{% if oidc %}
+import pytest
+{% endif %}
+from fastapi.testclient import TestClient
+{% if oidc %}
+
+from {{ module }}.main import app
+from {{ module }}.routes.auth import oidc as auth
+{% endif %}
+
+
+def test_info(
+    client: TestClient,
+{% if oidc %}
+    monkeypatch: pytest.MonkeyPatch,
+{% endif %}
+) -> None:
+    """Проверить имя и версию проекта."""
+{% if oidc %}
+    monkeypatch.setitem(app.dependency_overrides, auth.require_token, lambda: None)
+{% endif %}
+    response = client.get('/info')
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == {'name': '{{ name }}', 'version': version('{{ name }}')}

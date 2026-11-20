@@ -1,0 +1,12 @@
+{{ include_when(enabled=api) -}}
+"""Маршрут проверки запуска приложения."""
+
+from fastapi import APIRouter
+
+router = APIRouter()
+
+
+@router.get('/ready')
+async def ready() -> dict[str, str]:
+    """Подтвердить, что приложение запустилось."""
+    return {'status': 'ready'}

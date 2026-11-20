@@ -1,0 +1,9 @@
+{{ include_when(enabled=api) -}}
+"""Группа маршрутов со сведениями о проекте."""
+
+from fastapi import APIRouter
+
+from {{ module }}.routes.project import info
+
+router = APIRouter(tags=['Проект'])
+router.include_router(info.router)

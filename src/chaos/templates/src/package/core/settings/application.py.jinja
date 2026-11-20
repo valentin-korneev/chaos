@@ -1,0 +1,41 @@
+"""Настройки проекта из окружения и файла .env."""
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+{% if database %}
+from {{ module }}.core.settings.database import DatabaseSettings
+{% endif %}
+from {{ module }}.core.settings.log import LogSettings
+{% if oidc %}
+from {{ module }}.core.settings.oidc import OIDCSettings
+{% endif %}
+from {{ module }}.core.settings.paths import BASE_DIR, ENV_PREFIX
+
+
+class {{ settings_class }}(BaseSettings):
+    """Настройки проекта."""
+
+    model_config = SettingsConfigDict(
+        env_file=BASE_DIR / '.env',
+        env_file_encoding='utf-8',
+        env_nested_delimiter='__',
+        env_prefix=ENV_PREFIX,
+        extra='ignore',
+{% if oidc %}
+        hide_input_in_errors=True,
+{% endif %}
+    )
+
+    log: LogSettings = Field(default_factory=LogSettings)
+    project_name: str = '{{ name }}'
+{% if database %}
+    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+{% endif %}
+{% if api %}
+    host: str = '127.0.0.1'
+    port: int = Field(8000, ge=1, le=65535)
+{% endif %}
+{% if oidc %}
+    oidc: OIDCSettings
+{% endif %}

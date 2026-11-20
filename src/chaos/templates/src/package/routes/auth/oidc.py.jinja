@@ -1,0 +1,158 @@
+{{ include_when(enabled=api and oidc) -}}
+"""Вход через OIDC в Swagger UI и проверка токенов API."""
+
+from functools import lru_cache
+from http import HTTPStatus
+from typing import Annotated
+from urllib.parse import quote_plus
+
+import httpx2
+import jwt
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.security import OAuth2AuthorizationCodeBearer
+
+from {{ module }}.routes.auth.metadata import ProviderMetadata
+
+BEARER_SCHEME = 'Bearer'
+CLIENT_AUTH_BASIC = 'client_secret_basic'
+CLIENT_AUTH_POST = 'client_secret_post'
+
+router = APIRouter(prefix='/auth', include_in_schema=False)
+oauth2 = OAuth2AuthorizationCodeBearer(
+    authorizationUrl='auth/authorize',
+    tokenUrl='auth/token',
+    scopes={'openid': 'Вход через OIDC'},
+    auto_error=False,
+)
+
+
+@lru_cache
+def provider_metadata(discovery_url: str) -> ProviderMetadata:
+    """Загрузить и закешировать проверенные метаданные провайдера."""
+    try:
+        response = httpx2.get(discovery_url, timeout=5, follow_redirects=False)
+        response.raise_for_status()
+        return ProviderMetadata.model_validate(response.json())
+    except (httpx2.HTTPError, ValueError) as exc:
+        raise HTTPException(HTTPStatus.BAD_GATEWAY, 'Не удалось загрузить метаданные OIDC') from exc
+
+
+@lru_cache
+def signing_keys(jwks_uri: str) -> jwt.PyJWKClient:
+    """Получить клиент ключей с кешированием JWKS."""
+    return jwt.PyJWKClient(jwks_uri, timeout=5)
+
+
+def require_token(
+    request: Request,
+    token: Annotated[str | None, Depends(oauth2)],
+) -> None:
+    """Проверить подпись, издателя и срок действия токена доступа."""
+    if not token:
+        raise HTTPException(
+            HTTPStatus.UNAUTHORIZED,
+            'Требуется токен доступа OIDC',
+            headers={'WWW-Authenticate': BEARER_SCHEME},
+        )
+    settings = request.app.state.settings.oidc
+    metadata = provider_metadata(str(settings.discovery_url))
+    try:
+        header = jwt.get_unverified_header(token)
+        key = signing_keys(metadata.jwks_uri).get_signing_key_from_jwt(token)
+        claims = jwt.decode(
+            token,
+            key.key,
+            algorithms=[settings.signing_algorithm],
+            issuer=metadata.issuer,
+            options={'verify_aud': False, 'require': ['exp', 'iss', 'sub']},
+        )
+    except jwt.PyJWKClientConnectionError as exc:
+        raise HTTPException(HTTPStatus.BAD_GATEWAY, 'Ключи OIDC недоступны') from exc
+    except jwt.PyJWTError as exc:
+        raise HTTPException(
+            HTTPStatus.UNAUTHORIZED,
+            'Недействительный токен доступа',
+            headers={'WWW-Authenticate': BEARER_SCHEME},
+        ) from exc
+
+    if settings.jwt_profile == 'keycloak':
+        is_access_token = claims.get('typ') == BEARER_SCHEME
+    else:
+        token_type = str(header.get('typ', '')).lower()
+        is_access_token = token_type in {'at+jwt', 'application/at+jwt'}
+    if not is_access_token:
+        raise HTTPException(
+            HTTPStatus.UNAUTHORIZED,
+            'Требуется токен доступа OIDC',
+            headers={'WWW-Authenticate': BEARER_SCHEME},
+        )
+
+
+@router.get('/authorize')
+def authorize(
+    request: Request, redirect_uri: str, state: str, code_challenge: str,
+) -> RedirectResponse:
+    """Перенаправить Swagger UI на страницу входа провайдера."""
+    if redirect_uri != str(request.url_for('swagger_ui_redirect')):
+        raise HTTPException(HTTPStatus.BAD_REQUEST, 'Некорректный адрес возврата')
+    settings = request.app.state.settings.oidc
+    metadata = provider_metadata(str(settings.discovery_url))
+    url = httpx2.URL(metadata.authorization_endpoint).copy_merge_params({
+        'response_type': 'code',
+        'client_id': settings.client_id,
+        'scope': 'openid',
+        'redirect_uri': redirect_uri,
+        'state': state,
+        'code_challenge': code_challenge,
+        'code_challenge_method': 'S256',
+    })
+    return RedirectResponse(str(url))
+
+
+@router.post('/token')
+def exchange_code(
+    request: Request,
+    code: Annotated[str, Form()],
+    redirect_uri: Annotated[str, Form()],
+    code_verifier: Annotated[str, Form()],
+) -> JSONResponse:
+    """Обменять код на токен, передав секрет только провайдеру."""
+    if redirect_uri != str(request.url_for('swagger_ui_redirect')):
+        raise HTTPException(HTTPStatus.BAD_REQUEST, 'Некорректный адрес возврата')
+    settings = request.app.state.settings.oidc
+    metadata = provider_metadata(str(settings.discovery_url))
+    methods = metadata.token_endpoint_auth_methods_supported
+    method = settings.token_auth_method or (CLIENT_AUTH_BASIC if CLIENT_AUTH_BASIC in methods else CLIENT_AUTH_POST)
+    if method not in methods:
+        raise HTTPException(
+            HTTPStatus.BAD_GATEWAY,
+            'Провайдер OIDC не поддерживает выбранный способ аутентификации клиента',
+        )
+
+    data = {
+        'grant_type': 'authorization_code',
+        'code': code,
+        'redirect_uri': redirect_uri,
+        'code_verifier': code_verifier,
+    }
+    secret = settings.client_secret.get_secret_value()
+    auth = None
+    if method == CLIENT_AUTH_BASIC:
+        auth = (quote_plus(settings.client_id), quote_plus(secret))
+    else:
+        data.update(client_id=settings.client_id, client_secret=secret)
+    try:
+        response = httpx2.post(metadata.token_endpoint, data=data, auth=auth, timeout=5, follow_redirects=False)
+        response.raise_for_status()
+        payload = response.json()
+        return JSONResponse(
+            {'access_token': payload['access_token'], 'token_type': BEARER_SCHEME},
+            headers={'Cache-Control': 'no-store'},
+        )
+    except httpx2.HTTPStatusError as exc:
+        if exc.response.status_code == HTTPStatus.BAD_REQUEST:
+            raise HTTPException(HTTPStatus.BAD_REQUEST, 'Провайдер OIDC отклонил код авторизации') from exc
+        raise HTTPException(HTTPStatus.BAD_GATEWAY, 'Провайдер OIDC не выдал токен доступа') from exc
+    except (httpx2.RequestError, ValueError, KeyError, TypeError) as exc:
+        raise HTTPException(HTTPStatus.BAD_GATEWAY, 'Некорректный ответ провайдера OIDC') from exc

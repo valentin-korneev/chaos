@@ -1,0 +1,29 @@
+{{ include_when(enabled=api) -}}
+"""Маршрут проверки работоспособности сервиса."""
+
+{% if database %}
+import asyncio
+import logging
+
+from fastapi import APIRouter, HTTPException, Request
+
+logger = logging.getLogger(__name__)
+{% else %}
+from fastapi import APIRouter
+
+{% endif %}
+router = APIRouter()
+
+
+@router.get('/health')
+async def health({% if database %}request: Request{% endif %}) -> dict[str, str]:
+    """Проверить работу сервиса и его зависимостей."""
+{% if database %}
+    try:
+        async with asyncio.timeout(2):
+            await request.app.state.database.execute_query('SELECT 1')
+    except Exception as exc:
+        logger.warning('Ошибка проверки PostgreSQL: %s', type(exc).__name__)
+        raise HTTPException(status_code=503, detail='PostgreSQL недоступен') from exc
+{% endif %}
+    return {'status': 'ok'}

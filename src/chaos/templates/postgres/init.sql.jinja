@@ -1,0 +1,3 @@
+{{ include_when(enabled=database) -}}
+-- Создание схемы проекта
+create schema if not exists "{{ name }}" authorization current_user;

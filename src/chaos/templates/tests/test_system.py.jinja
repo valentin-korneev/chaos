@@ -1,0 +1,48 @@
+{{ include_when(enabled=tests and api) -}}
+"""Проверки диагностических маршрутов."""
+
+from http import HTTPStatus
+{% if database %}
+from unittest.mock import AsyncMock
+{% endif %}
+
+{% if database %}
+import pytest
+{% endif %}
+from fastapi.testclient import TestClient
+{% if database %}
+
+from {{ module }}.main import app
+{% endif %}
+
+
+def test_ready(client: TestClient) -> None:
+    """Проверить, что приложение запустилось."""
+    response = client.get('/ready')
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == {'status': 'ready'}
+
+
+{% if database %}
+def test_health(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Проверить ответы при доступной и недоступной базе данных."""
+    query = AsyncMock()
+    monkeypatch.setattr(app.state.database, 'execute_query', query)
+
+    response = client.get('/health')
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == {'status': 'ok'}
+    query.assert_awaited_once_with('SELECT 1')
+
+    query.side_effect = OSError
+    assert client.get('/health').status_code == HTTPStatus.SERVICE_UNAVAILABLE
+    assert client.get('/ready').status_code == HTTPStatus.OK
+{% else %}
+def test_health(client: TestClient) -> None:
+    """Проверить работоспособность сервиса."""
+    response = client.get('/health')
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == {'status': 'ok'}
+{% endif %}

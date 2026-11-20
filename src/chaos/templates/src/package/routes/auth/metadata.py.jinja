@@ -1,0 +1,26 @@
+{{ include_when(enabled=api and oidc) -}}
+"""Модель метаданных OIDC Discovery."""
+
+from urllib.parse import urlsplit
+
+from pydantic import BaseModel, field_validator
+
+
+class ProviderMetadata(BaseModel):
+    """Адреса и возможности провайдера из OIDC Discovery."""
+
+    issuer: str
+    authorization_endpoint: str
+    token_endpoint: str
+    jwks_uri: str
+    token_endpoint_auth_methods_supported: list[str] = ['client_secret_basic']
+
+    @field_validator('issuer', 'authorization_endpoint', 'token_endpoint', 'jwks_uri')
+    @classmethod
+    def validate_https_url(cls, value: str) -> str:
+        """Проверить HTTPS-адрес, сохранив точное значение издателя."""
+        url = urlsplit(value)
+        if url.scheme != 'https' or not url.hostname or url.username is not None or url.fragment:
+            message = 'Метаданные OIDC содержат некорректный HTTPS-адрес'
+            raise ValueError(message)
+        return value

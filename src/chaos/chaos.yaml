@@ -1,0 +1,42 @@
+# Индекс для зависимостей сгенерированных проектов.
+uv_index: https://pypi.org/simple
+
+# Правила, отключённые в сгенерированных проектах.
+ruff_ignore: [D203, D213, COM812, CPY001, DTZ, E501, RUF001, RUF002, RUF003, TC]
+pylint_disable:
+  - missing-module-docstring
+  - missing-class-docstring
+  - missing-function-docstring
+  - too-few-public-methods
+  - line-too-long
+bandit_skips: []
+
+gitlab_stages: [linters, sonar, security, publish]
+gitlab_components:
+  - component: $CI_SERVER_HOST/ci-cd/ci-cd-components/python/python-linters/python-linters@0.0.6
+    inputs:
+      stage: linters
+      python_image: '{ci_image}'
+      ruff_enable: true
+      ruff_tag: '0.0.4'
+  - component: $CI_SERVER_HOST/ci-cd/ci-cd-components/sonar-qube/sonar-scanner/sonar-scanner@0.0.1
+    inputs:
+      stage: sonar
+  - component: $CI_SERVER_HOST/ci-cd/ci-cd-components/security/sast-component/sast-scan@0.1.1
+    inputs:
+      stage: security
+    branches: [dev, test, main]
+  - component: $CI_SERVER_HOST/ci-cd/ci-cd-components/security/dependency-scanning/dependency-scanning@0.1.3
+    inputs:
+      stage: security
+    branches: [dev, test, main]
+  - component: $CI_SERVER_HOST/ci-cd/ci-cd-components/security/secret-detection/secret-detection@0.1.1
+    inputs:
+      stage: security
+
+# Подстановка {python} использует выбранную в анкете ветку Python.
+images:
+  uv: ghcr.io/astral-sh/uv
+  # Используйте образ PostgreSQL версии 18 или новее.
+  postgres: docker.io/library/postgres:18
+  ci: 'gitlab-registry.domain.by/ci-cd/build-containers/python:python{python}-trixie-slim'

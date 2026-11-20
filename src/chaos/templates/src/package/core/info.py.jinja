@@ -1,0 +1,12 @@
+"""Публичные сведения о проекте."""
+
+from importlib.metadata import version
+
+from {{ module }}.core.settings.application import (
+    {{ settings_class }},
+)
+
+
+def project_info(settings: {{ settings_class }}) -> dict[str, str]:
+    """Вернуть имя проекта из настроек и версию установленного пакета."""
+    return {'name': settings.project_name, 'version': version('{{ name }}')}

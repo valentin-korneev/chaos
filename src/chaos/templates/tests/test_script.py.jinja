@@ -1,0 +1,34 @@
+{{ include_when(enabled=tests and not api) -}}
+"""Проверки точки входа скрипта."""
+
+import logging
+from importlib.metadata import version
+{% if database %}
+from unittest.mock import AsyncMock, MagicMock, Mock
+{% else %}
+from unittest.mock import Mock
+{% endif %}
+
+import pytest
+
+from {{ module }} import main as application
+
+
+def test_main(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """Проверить, что скрипт выводит имя и версию проекта."""
+    monkeypatch.setattr(application, 'configure_logging', Mock())
+{% if database %}
+    query = AsyncMock()
+    context_manager = MagicMock()
+    context_manager.__aenter__.return_value = Mock(execute_query=query)
+    monkeypatch.setattr(application, 'database_lifespan', Mock(return_value=context_manager))
+{% endif %}
+
+    with caplog.at_level(logging.INFO):
+        application.main()
+
+    assert '{{ name }}' in caplog.text
+    assert version('{{ name }}') in caplog.text
+{% if database %}
+    query.assert_awaited_once_with('SELECT 1')
+{% endif %}

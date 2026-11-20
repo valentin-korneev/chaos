@@ -1,0 +1,33 @@
+{% if python_image %}
+FROM {{ python_image }}
+COPY --from={{ uv_image }} /uv /usr/local/bin/uv
+{% else %}
+FROM {{ uv_image }}
+{% endif %}
+
+ENV PYTHONUNBUFFERED=1
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+ENV UV_PYTHON_DOWNLOADS=never
+ENV PATH="/app/.venv/bin:$PATH"
+{% if api %}
+ENV {{ prefix }}HOST=0.0.0.0
+ENV {{ prefix }}PORT=8000
+{% endif %}
+
+WORKDIR /app
+COPY pyproject.toml uv.lock .python-version ./
+RUN uv sync --locked --no-dev --no-install-project
+
+COPY README.md ./
+COPY src ./src
+RUN uv sync --locked --no-dev
+
+{% if api %}
+EXPOSE 8000
+{% endif %}
+{% if database %}
+CMD ["sh", "-ec", "set -- src/{{ module }}/migrations/[0-9]*.py; if [ -f \"$1\" ]; then tortoise migrate; fi; exec {{ name }}"]
+{% else %}
+CMD ["{{ name }}"]
+{% endif %}

@@ -1,0 +1,65 @@
+{{ include_when(enabled=database) -}}
+"""Конфигурация и жизненный цикл Tortoise ORM."""
+
+import warnings
+from collections.abc import AsyncIterator
+from contextlib import AsyncExitStack, asynccontextmanager
+
+{% if api %}
+from tortoise import Tortoise
+{% endif %}
+from tortoise.backends.base.client import BaseDBAsyncClient
+{% if api %}
+from tortoise.contrib.fastapi import RegisterTortoise
+{% else %}
+from tortoise.context import TortoiseContext
+{% endif %}
+
+from {{ module }}.core.settings.database import DatabaseSettings
+
+
+def tortoise_config(settings: DatabaseSettings) -> dict:
+    """Собрать общую конфигурацию для приложения и миграций."""
+    return {
+        'connections': {
+            'default': {
+                'engine': 'tortoise.backends.asyncpg',
+                'credentials': {
+                    'host': settings.db_host,
+                    'port': settings.db_port,
+                    'database': settings.db_name,
+                    'user': settings.db_user,
+                    'password': settings.db_password.get_secret_value(),
+                    'server_settings': {'search_path': '"{{ name }}"'},
+                },
+            },
+        },
+        'apps': {
+            'models': {
+                'models': ['{{ module }}.models'],
+                'default_connection': 'default',
+                'migrations': '{{ module }}.migrations',
+            },
+        },
+    }
+
+
+@asynccontextmanager
+async def database_lifespan(settings: DatabaseSettings) -> AsyncIterator[BaseDBAsyncClient]:
+    """Открыть контекст ORM и вернуть его соединение для проверок."""
+    async with AsyncExitStack() as stack:
+        with warnings.catch_warnings():
+            # Пустой пакет моделей предусмотрен в новом проекте.
+            warnings.filterwarnings(
+                'ignore',
+                message=r'^Module "{{ module }}\.models" has no models$',
+                category=RuntimeWarning,
+            )
+{% if api %}
+            await stack.enter_async_context(RegisterTortoise(config=tortoise_config(settings)))
+        yield Tortoise.get_connection('default')
+{% else %}
+            context = await stack.enter_async_context(TortoiseContext())
+            await context.init(config=tortoise_config(settings))
+        yield context.db()
+{% endif %}

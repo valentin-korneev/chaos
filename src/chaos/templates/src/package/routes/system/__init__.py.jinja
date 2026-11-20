@@ -1,0 +1,10 @@
+{{ include_when(enabled=api) -}}
+"""Группа диагностических маршрутов сервиса."""
+
+from fastapi import APIRouter
+
+from {{ module }}.routes.system import health, ready
+
+router = APIRouter(tags=['Диагностика'])
+router.include_router(health.router)
+router.include_router(ready.router)

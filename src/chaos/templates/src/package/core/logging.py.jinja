@@ -1,0 +1,43 @@
+"""Направлять обычные логи в stdout, а предупреждения и ошибки в stderr."""
+
+import logging
+from logging.config import dictConfig
+
+from {{ module }}.core.settings.log import LogSettings
+
+
+class BelowWarning(logging.Filter):
+    """Пропускать записи с уровнем ниже WARNING."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Проверить, нужно ли отправить запись в stdout."""
+        return record.levelno < logging.WARNING
+
+
+def configure_logging(settings: LogSettings) -> None:
+    """Настроить корневой логгер."""
+    dictConfig(
+        {
+            'version': 1,
+            'disable_existing_loggers': False,
+            'filters': {'below_warning': {'()': BelowWarning}},
+            'formatters': {
+                'default': {'format': settings.format, 'datefmt': settings.date_format},
+            },
+            'handlers': {
+                'stdout': {
+                    'class': 'logging.StreamHandler',
+                    'stream': 'ext://sys.stdout',
+                    'formatter': 'default',
+                    'filters': ['below_warning'],
+                },
+                'stderr': {
+                    'class': 'logging.StreamHandler',
+                    'stream': 'ext://sys.stderr',
+                    'formatter': 'default',
+                    'level': 'WARNING',
+                },
+            },
+            'root': {'level': settings.level, 'handlers': ['stdout', 'stderr']},
+        },
+    )

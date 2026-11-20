@@ -1,0 +1,7 @@
+{{ include_when(enabled=database) -}}
+"""Конфигурация CLI Tortoise для применения миграций."""
+
+from {{ module }}.core.database import tortoise_config
+from {{ module }}.core.settings.database import DatabaseSettings
+
+TORTOISE_ORM = tortoise_config(DatabaseSettings())
