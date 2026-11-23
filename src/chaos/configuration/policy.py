@@ -83,11 +83,11 @@ def _read_yaml(path: Traversable) -> dict:
 
 def load_policy(path: Path | None) -> Policy:
     """Загрузить конфигурацию пакета и выбранные переопределения."""
-    bundled = _read_yaml(files('chaos').joinpath('chaos.yaml'))
+    bundled = _read_yaml(files('chaos').joinpath('config.yaml'))
     missing = POLICY_KEYS - bundled.keys()
     if missing:
         keys = ', '.join(sorted(missing))
-        msg = f'Во встроенной конфигурации chaos.yaml отсутствуют ключи: {keys}'
+        msg = f'Во встроенной конфигурации config.yaml отсутствуют ключи: {keys}'
         raise PolicyError(msg)
 
     if path is None:
@@ -120,11 +120,11 @@ def load_policy(path: Path | None) -> Policy:
 
 def _index(index: object) -> str:
     if not isinstance(index, str) or any(char.isspace() for char in index):
-        msg = 'uv_index должен содержать HTTP(S)-адрес без учётных данных'
+        msg = 'uv_index должен содержать HTTP(S)-адрес без учетных данных'
         raise PolicyError(msg)
     parsed = urlsplit(index)
     if parsed.scheme not in {'https', 'http'} or not parsed.hostname or parsed.username is not None:
-        msg = 'uv_index должен содержать HTTP(S)-адрес без учётных данных'
+        msg = 'uv_index должен содержать HTTP(S)-адрес без учетных данных'
         raise PolicyError(msg)
     return index
 

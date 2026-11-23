@@ -12,14 +12,13 @@ dev = []
 [project.scripts]
 {{ name }} = "{{ module }}.main:main"
 
+[[tool.uv.index]]
+url = {{ policy.uv_index | toml }}
+default = true
+
 [build-system]
 requires = {{ build_system.requires | toml }}
 build-backend = {{ build_system['build-backend'] | toml }}
-
-[[tool.uv.index]]
-name = "company"
-url = {{ policy.uv_index | toml }}
-default = true
 
 {% if database %}
 [tool.tortoise]

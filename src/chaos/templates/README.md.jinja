@@ -1,6 +1,6 @@
 # {{ name }}
 
-Проект Python {{ python }}, созданный через `chaos`.
+Проект Python {{ python }}, созданный через `Chaos`.
 
 ## Запуск
 
@@ -15,7 +15,7 @@ uv run {{ name }}
 ```
 
 {% if database %}
-`docker compose up --build` запускает приложение и PostgreSQL. Compose создаёт базу, схему `{{ name }}` и том `postgres_{{ name }}`.
+`docker compose up -d --build` запускает приложение и PostgreSQL. Compose создает базу, схему `{{ name }}` и том `postgres_{{ name }}`.
 
 ### Модели и миграции
 
@@ -41,14 +41,14 @@ tortoise migrate
 | `{{ prefix }}LOG__DATE_FORMAT` | Формат времени для `%(asctime)s`. |
 {% if database %}
 | `{{ prefix }}DB_HOST`, `{{ prefix }}DB_PORT` | Хост и порт PostgreSQL. В Compose хост `db`. Порт по умолчанию `5432`. |
-| `{{ prefix }}DB_NAME`, `{{ prefix }}DB_USER`, `{{ prefix }}DB_PASSWORD` | Имя базы и учётные данные. |
+| `{{ prefix }}DB_NAME`, `{{ prefix }}DB_USER`, `{{ prefix }}DB_PASSWORD` | Имя базы и учетные данные. |
 {% endif %}
 {% if api %}
 | `{{ prefix }}HOST`, `{{ prefix }}PORT` | Адрес и порт FastAPI. Локально `127.0.0.1:8000`. |
 {% endif %}
 {% if oidc %}
 | `{{ prefix }}OIDC__DISCOVERY_URL` | HTTPS-адрес документа `.well-known/openid-configuration`. |
-| `{{ prefix }}OIDC__CLIENT_ID`, `{{ prefix }}OIDC__CLIENT_SECRET` | Учётные данные OIDC-клиента. |
+| `{{ prefix }}OIDC__CLIENT_ID`, `{{ prefix }}OIDC__CLIENT_SECRET` | Учетные данные OIDC-клиента. |
 | `{{ prefix }}OIDC__SIGNING_ALGORITHM`, `{{ prefix }}OIDC__JWT_PROFILE` | По умолчанию `RS256` и `rfc9068`. Для Keycloak доступен профиль `keycloak`. |
 | `{{ prefix }}OIDC__TOKEN_AUTH_METHOD` | При необходимости `client_secret_basic` или `client_secret_post`. |
 {% endif %}
@@ -67,15 +67,16 @@ tortoise migrate
 | `GET /info` | Имя и версия проекта{% if oidc %}. Требуется токен доступа{% endif %}. |
 
 Для нового раздела создайте группу в `src/{{ module }}/routes/` по примеру
-`system/` и подключите её через `app.include_router(...)` в `main.py`.
+`system/` и подключите ее через `app.include_router(...)` в `main.py`.
 {% endif %}
 {% if oidc %}
 
 ### OIDC
 
-У провайдера включите Authorization Code с PKCE S256 и зарегистрируйте `http://127.0.0.1:8000/docs/oauth2-redirect` для
-локального запуска. Для развёртывания зарегистрируйте HTTPS-адрес возврата сервиса. В `/docs` нажмите
-**Authorize**. Секрет берётся из окружения сервиса.
+Заполните в `.env` параметры:
+{{ prefix }}OIDC__DISCOVERY_URL=https://id.example.com/.well-known/openid-configuration
+{{ prefix }}OIDC__CLIENT_ID=
+{{ prefix }}OIDC__CLIENT_SECRET=
 {% endif %}
 
 ## Docker

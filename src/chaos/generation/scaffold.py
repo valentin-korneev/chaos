@@ -18,7 +18,7 @@ def write_scaffold(
     policy: Policy,
     initial_metadata: dict[str, Any],
 ) -> None:
-    """Записать конфигурацию и исходники с учётом выбранных опций."""
+    """Записать конфигурацию и исходники с учетом выбранных опций."""
     context = {
         'name': project.name,
         'api': project.api,

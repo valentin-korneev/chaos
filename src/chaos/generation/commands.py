@@ -17,7 +17,7 @@ class CommandError(RuntimeError):
 
 
 def run(directory: Path, *command: str, capture: bool = False) -> str:
-    """Выполнить внешнюю команду и при необходимости вернуть её вывод."""
+    """Выполнить внешнюю команду и при необходимости вернуть ее вывод."""
     if not capture:
         shown = (*command[:-1], '<адрес репозитория>') if command[:4] == ('git', 'remote', 'add', 'origin') else command
         sys.stdout.write(f'+ {shlex.join(shown)}\n')
@@ -59,6 +59,6 @@ def python_versions(directory: Path) -> list[str]:
         and re.fullmatch(r'3\.\d+\.\d+', entry['version'])
     }
     if not versions:
-        message = 'UV не нашёл стабильных сборок CPython для этой платформы'
+        message = 'UV не нашел стабильных сборок CPython для этой платформы'
         raise ValueError(message)
     return [f'{major}.{minor}' for major, minor in sorted(versions, reverse=True)[:4]]

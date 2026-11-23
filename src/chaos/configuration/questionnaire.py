@@ -1,4 +1,4 @@
-"""Интерактивный выбор параметров и проверка введённых значений."""
+"""Интерактивный выбор параметров и проверка введенных значений."""
 
 import keyword
 import re
@@ -34,7 +34,7 @@ DEPENDENCY_NAMES = {
 def validate_name(name: str) -> bool | str:
     """Проверить имя проекта и имя Python-пакета."""
     if not re.fullmatch(r'[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*', name):
-        return 'Используйте строчные латинские буквы и цифры, разделённые дефисами или подчёркиваниями.'
+        return 'Используйте строчные латинские буквы и цифры, разделенные дефисами или подчеркиваниями.'
     module = name.replace('-', '_')
     if keyword.iskeyword(module) or module in sys.stdlib_module_names or module in DEPENDENCY_NAMES:
         return 'Выберите имя, которое не совпадает с модулем Python или зависимостью проекта.'
