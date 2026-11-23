@@ -28,7 +28,7 @@ repos:
 
       - id: amend-version
         name: Добавление версии в commit
-        entry: git -c "core.hooksPath=.git/no-hooks commit --amend --no-edit pyproject.toml uv.lock
+        entry: git -c core.hooksPath=.git/no-hooks commit --amend --no-edit pyproject.toml uv.lock"
         language: system
         pass_filenames: false
         always_run: true
